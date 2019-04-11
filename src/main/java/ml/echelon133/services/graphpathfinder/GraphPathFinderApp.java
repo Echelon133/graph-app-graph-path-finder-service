@@ -1,5 +1,14 @@
 package ml.echelon133.services.graphpathfinder;
 
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import ml.echelon133.graph.Graph;
+import ml.echelon133.graph.Vertex;
+import ml.echelon133.graph.VertexResult;
+import ml.echelon133.graph.json.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
@@ -12,11 +21,39 @@ import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
+import java.math.BigDecimal;
+import java.util.Map;
+
 @SpringBootApplication
 @EnableDiscoveryClient
-@EnableFeignClients
 @EnableSwagger2
+@EnableFeignClients
 public class GraphPathFinderApp {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GraphPathFinderApp.class);
+
+    @Bean
+    public static ObjectMapper objectMapper() {
+        LOGGER.info("Started setup of ObjectMapper");
+        SimpleModule module = new SimpleModule();
+        ObjectMapper mapper = new ObjectMapper();
+
+        JavaType vertexType = mapper.constructType(Vertex.class);
+        JavaType graphBigDecimalType = mapper.getTypeFactory().constructParametricType(Graph.class, BigDecimal.class);
+        JavaType vertexResultType = mapper.constructType(VertexResult.class);
+        JavaType resultMapType = mapper.getTypeFactory().constructMapType(Map.class, Vertex.class, VertexResult.class);
+
+        module.addSerializer(new VertexSerializer(vertexType));
+        module.addSerializer(new VertexResultSerializer(vertexResultType));
+        module.addSerializer(new ResultMapSerializer(resultMapType));
+
+        module.addDeserializer(Graph.class, new GraphDeserializer(graphBigDecimalType));
+
+        mapper.registerModule(module);
+
+        LOGGER.info("Finished setup of ObjectMapper");
+        return mapper;
+    }
 
     @Bean
     public Docket swaggerApi() {
