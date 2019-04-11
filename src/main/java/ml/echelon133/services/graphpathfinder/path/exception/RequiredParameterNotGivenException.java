@@ -1,4 +1,4 @@
-package ml.echelon133.services.graphpathfinder.path;
+package ml.echelon133.services.graphpathfinder.path.exception;
 
 public class RequiredParameterNotGivenException extends Exception {
 
