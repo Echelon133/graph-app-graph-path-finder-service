@@ -1,5 +1,9 @@
 package ml.echelon133.services.graphpathfinder.path;
 
+import ml.echelon133.services.graphpathfinder.path.exception.GraphDoesNotExistException;
+import ml.echelon133.services.graphpathfinder.path.exception.GraphDoesNotHaveGivenVertexException;
+import ml.echelon133.services.graphpathfinder.path.exception.GraphNotAvailableException;
+import ml.echelon133.services.graphpathfinder.path.exception.RequiredParameterNotGivenException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -42,4 +46,21 @@ public class APIExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(msg, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(value = GraphDoesNotHaveGivenVertexException.class)
+    protected ResponseEntity<ErrorMessage> handleGraphDoesNotHaveGivenVertexException(GraphDoesNotHaveGivenVertexException ex, WebRequest request) {
+        ErrorMessage msg = new ErrorMessage(ex.getMessage(), request.getDescription(false));
+        return new ResponseEntity<>(msg, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(value = GraphDoesNotExistException.class)
+    protected ResponseEntity<ErrorMessage> handleGraphDoesNotExistException(GraphDoesNotExistException ex, WebRequest request) {
+        ErrorMessage msg = new ErrorMessage(ex.getMessage(), request.getDescription(false));
+        return new ResponseEntity<>(msg, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(value = GraphNotAvailableException.class)
+    protected ResponseEntity<ErrorMessage> handleGraphNotAvailableException(GraphNotAvailableException ex, WebRequest request) {
+        ErrorMessage msg = new ErrorMessage(ex.getMessage(), request.getDescription(false));
+        return new ResponseEntity<>(msg, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
 }
