@@ -147,4 +147,31 @@ public class PathServiceTest {
         // Then
         assertThat(receivedMsg).isEqualTo(expectedMsg);
     }
+
+    @Test
+    public void calculateShortestPathThrowsExceptionWhenVertexNameNotInGraph() {
+        String testGraphId = "abcdefghijklmnoprst";
+        String vertexName = "v2";
+
+        String expectedMsg = String.format("Graph with ID %s does not have a vertex with name %s", testGraphId, vertexName);
+        String receivedMsg = "";
+
+        // prepare a simple test graph
+        Graph<BigDecimal> testGraph = new WeightedGraph<>();
+        Vertex<BigDecimal> v1Vertex = new Vertex<>("v1");
+        testGraph.addVertex(v1Vertex);
+
+        // Given
+        given(graphClient.getGraph(eq(testGraphId))).willReturn(testGraph);
+
+        // When
+        try {
+            Map<Vertex<BigDecimal>, VertexResult<BigDecimal>> result = pathService.calculateShortestPath(testGraphId, "v2");
+        } catch (Exception e) {
+            receivedMsg = e.getMessage();
+        }
+
+        // Then
+        assertThat(receivedMsg).isEqualTo(expectedMsg);
+    }
 }
