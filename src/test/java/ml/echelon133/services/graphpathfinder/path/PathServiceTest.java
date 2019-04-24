@@ -1,5 +1,8 @@
 package ml.echelon133.services.graphpathfinder.path;
 
+import feign.FeignException;
+import feign.Request;
+import feign.Response;
 import ml.echelon133.graph.Graph;
 import ml.echelon133.graph.Vertex;
 import ml.echelon133.graph.VertexResult;
@@ -12,9 +15,8 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 import java.math.BigDecimal;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.nio.charset.Charset;
+import java.util.*;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -29,6 +31,33 @@ public class PathServiceTest {
     @InjectMocks
     private PathServiceImpl pathService;
 
+
+    private FeignException createFeignExceptionWithStatus(Integer status) {
+        // Really hacky way to create a FeignException on our own...
+        // We need the ability to fake feign client exceptions (ex. other service being down, having no response, etc...)
+
+        // create fake headers
+        Map<String, Collection<String>> fakeHeaders = new LinkedHashMap<>();
+        fakeHeaders.put("Transfer-Encoding", List.of("chunked"));
+        fakeHeaders.put("Date", List.of("Wed,24 Apr 2019 12:00:00 GMT"));
+        fakeHeaders.put("Content-Type", List.of("application/json;charset=UTF-8"));
+
+        // build a fake response
+        Response resp = Response.builder()
+                .status(status)
+                .request(
+                        Request.create(
+                                Request.HttpMethod.GET,
+                                "testurl",
+                                fakeHeaders,
+                                new byte[1],
+                                Charset.defaultCharset()
+                        )
+                )
+                .headers(fakeHeaders)
+                .build();
+        return FeignException.errorStatus("GET", resp);
+    }
 
     @Test
     public void calculateShortestPathReturnsCorrectResult() throws Exception {
@@ -69,5 +98,53 @@ public class PathServiceTest {
         assertThat(v3VertexResult.getSumOfWeights()).isEqualByComparingTo(new BigDecimal(50));
         assertThat(v3VertexResult.getPreviousVertex()).isEqualTo(v2Vertex);
         assertThat(v3VertexResult.getPathToVertex()).isEqualTo(List.of(v1Vertex, v2Vertex));
+    }
+
+    @Test
+    public void calculateShortestPathThrowsExceptionWhenGraphDoesNotExist() {
+        String graphId = "aaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+        String expectedMsg = String.format("Graph with ID %s does not exist. Cannot find shortest paths", graphId);
+        String receivedMsg = "";
+
+        // Given
+
+        // We need to fake other service returning 404 status to our request
+        FeignException ex = createFeignExceptionWithStatus(404);
+        given(graphClient.getGraph(graphId)).willThrow(ex);
+
+        // When
+        try {
+            Map<Vertex<BigDecimal>, VertexResult<BigDecimal>> result = pathService.calculateShortestPath(graphId, "v1");
+        } catch (Exception e) {
+            receivedMsg = e.getMessage();
+        }
+
+        // Then
+        assertThat(receivedMsg).isEqualTo(expectedMsg);
+    }
+
+    @Test
+    public void calculateShortestPathThrowsExceptionOnClientServiceError() {
+        String graphId = "aaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+        String expectedMsg = String.format("Graph with ID %s is unreachable right now. Try again later", graphId);
+        String receivedMsg = "";
+
+        // Given
+
+        // We need to fake other service returning 500 status to our request
+        FeignException ex = createFeignExceptionWithStatus(500);
+        given(graphClient.getGraph(graphId)).willThrow(ex);
+
+        // When
+        try {
+            Map<Vertex<BigDecimal>, VertexResult<BigDecimal>> result = pathService.calculateShortestPath(graphId, "v1");
+        } catch (Exception e) {
+            receivedMsg = e.getMessage();
+        }
+
+        // Then
+        assertThat(receivedMsg).isEqualTo(expectedMsg);
     }
 }
