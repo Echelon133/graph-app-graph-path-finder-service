@@ -4,6 +4,8 @@ import ml.echelon133.graph.Vertex;
 import ml.echelon133.graph.VertexResult;
 import ml.echelon133.services.graphpathfinder.GraphPathFinderApp;
 import ml.echelon133.services.graphpathfinder.path.exception.GraphDoesNotExistException;
+import ml.echelon133.services.graphpathfinder.path.exception.GraphDoesNotHaveGivenVertexException;
+import ml.echelon133.services.graphpathfinder.path.exception.GraphNotAvailableException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -102,5 +104,43 @@ public class PathControllerTest {
         // Then
         assertThat(response.getContentAsString()).contains(exceptionMsg);
         assertThat(response.getStatus()).isEqualTo(HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    public void calcPathRespondsCorrectlyWhenGraphNotAvailable() throws Exception {
+        String graphId = "asdf";
+        String startFrom = "v1";
+
+        // Given
+        String exceptionMsg = String.format("Graph with ID %s is unreachable right now. Try again later", graphId);
+        given(pathService.calculateShortestPath(eq(graphId), eq(startFrom))).willThrow(new GraphNotAvailableException(exceptionMsg));
+
+        // When
+        MockHttpServletResponse response = mockMvc.perform(post("/api/graphs/" + graphId + "/paths")
+                .accept(MediaType.APPLICATION_JSON)
+                .param("startFrom", startFrom)).andReturn().getResponse();
+
+        // Then
+        assertThat(response.getContentAsString()).contains(exceptionMsg);
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
+    }
+
+    @Test
+    public void calcPathRespondsCorrectlyWhenGraphDoesNotHaveGivenStartVertex() throws Exception {
+        String graphId = "asdf";
+        String startFrom = "v1";
+
+        // Given
+        String exceptionMsg = String.format("Graph with ID %s does not have a vertex with name %s", graphId, startFrom);
+        given(pathService.calculateShortestPath(eq(graphId), eq(startFrom))).willThrow(new GraphDoesNotHaveGivenVertexException(exceptionMsg));
+
+        // When
+        MockHttpServletResponse response = mockMvc.perform(post("/api/graphs/" + graphId + "/paths")
+                .accept(MediaType.APPLICATION_JSON)
+                .param("startFrom", startFrom)).andReturn().getResponse();
+
+        // Then
+        assertThat(response.getContentAsString()).contains(exceptionMsg);
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
     }
 }
