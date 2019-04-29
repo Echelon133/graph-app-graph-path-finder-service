@@ -13,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.springframework.boot.test.json.JacksonTester;
+import org.springframework.boot.test.json.JsonContent;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
@@ -21,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
@@ -143,4 +145,40 @@ public class PathControllerTest {
         assertThat(response.getContentAsString()).contains(exceptionMsg);
         assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
     }
+
+    @Test
+    public void calcPathRespondsCorrectlyOnValidRequest() throws Exception {
+        String graphId = "abcdefghijklmnoprst";
+        String startFrom = "vertex1";
+
+        // Setup some fake calculation results
+        Vertex<BigDecimal> v1 = new Vertex<>("vertex1");
+        VertexResult<BigDecimal> v1Result = new VertexResult<>(v1);
+        v1Result.setSumOfWeights(new BigDecimal(0));
+
+        Vertex<BigDecimal> v2 = new Vertex<>("vertex2");
+        VertexResult<BigDecimal> v2Result = new VertexResult<>(v2);
+        v2Result.setSumOfWeights(new BigDecimal(10));
+        v2Result.setPreviousVertex(v1);
+
+        Map<Vertex<BigDecimal>, VertexResult<BigDecimal>> result = new HashMap<>();
+
+        result.put(v1, v1Result);
+        result.put(v2, v2Result);
+
+        JsonContent<Map<Vertex<BigDecimal>, VertexResult<BigDecimal>>> jsonContent = jsonPathResult.write(result);
+
+        // Given
+        given(pathService.calculateShortestPath(eq(graphId), eq(startFrom))).willReturn(result);
+
+        // When
+        MockHttpServletResponse response = mockMvc.perform(post("/api/graphs/" + graphId + "/paths")
+                .accept(MediaType.APPLICATION_JSON)
+                .param("startFrom", startFrom)).andReturn().getResponse();
+
+        // Then
+        assertThat(response.getContentAsString()).isEqualTo(jsonContent.getJson());
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+    }
+
 }
